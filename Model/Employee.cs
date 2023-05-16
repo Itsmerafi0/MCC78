@@ -1,4 +1,4 @@
-﻿using BasicConnection;
+﻿using BasicConnection.Context;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
@@ -6,14 +6,11 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BasicConnection
+namespace BasicConnection.Model
 {
-    public class Employees
+    public class Employee
     {
-        private static readonly string connectionString =
-         "Data Source=RAFI;Database=bookingservice;Integrated Security=True;Connect Timeout=30;Encrypt=False;";
-
-        public int Id { get; set; }
+        public string Id { get; set; }
         public string Nik { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
@@ -24,10 +21,10 @@ namespace BasicConnection
         public string PhoneNumber { get; set; }
         public string DepartmentId { get; set; }
 
-        public static int InsertEmployee(Employees employees)
+        public int InsertEmployee(Employee employees)
         {
             int result = 0;
-            using var connection = new SqlConnection(connectionString);
+            using var connection = MyConnection.Get();
             connection.Open();
 
             SqlTransaction transaction = connection.BeginTransaction();
@@ -35,7 +32,8 @@ namespace BasicConnection
             {
                 SqlCommand command = new SqlCommand();
                 command.Connection = connection;
-                command.CommandText = "INSERT INTO tb_m_employees(nik, first_name, last_name, birthdate, gender, hiring_date, email, phone_number, department_id) " +
+                command.CommandText =
+                    "INSERT INTO tb_m_employees(nik, first_name, last_name, birthdate, gender, hiring_date, email, phone_number, department_id) " +
                     "VALUES (@NIK, @FirstName, @LastName, @Birthdate, @Gender, @HiringDate, @Email, @PhoneNumber, @DepartmentId)";
                 command.Transaction = transaction;
 
@@ -115,12 +113,13 @@ namespace BasicConnection
             {
                 connection.Close();
             }
+
             return result;
         }
 
-        public static string GetEmpId(string NIK)
+        public string GetEmpId(string NIK)
         {
-            using SqlConnection connection = new SqlConnection(connectionString);
+            using SqlConnection connection = MyConnection.Get();
             connection.Open();
 
             SqlCommand command = new SqlCommand("SELECT id FROM tb_m_employees WHERE nik=(@NIK)", connection);
@@ -136,9 +135,9 @@ namespace BasicConnection
             return lastEmpId;
         }
 
-        public static int GetUnivEduId(int choice)
+        public int GetUnivEduId(int choice)
         {
-            using var connection = new SqlConnection(connectionString);
+            using var connection = MyConnection.Get();
             connection.Open();
             if (choice == 1)
             {
@@ -151,7 +150,7 @@ namespace BasicConnection
             }
             else
             {
-                SqlCommand command = new SqlCommand("SELECT TOP 1 id FROM tb_m_educations ORDER BY id DESC", connection);
+                var command = new SqlCommand("SELECT TOP 1 id FROM tb_m_educations ORDER BY id DESC", connection);
 
                 int id = Convert.ToInt32(command.ExecuteScalar());
                 connection.Close();
@@ -159,75 +158,53 @@ namespace BasicConnection
                 return id;
             }
         }
-        public static void PrintOutEmployee()
+
+        public List<Employee> GetEmployee()
         {
-            var employee = new Employees();
-            var profiling = new profilings();
-            var education = new educations();
-            var university = new universities();
-
-            Console.Write("NIK : ");
-            var niks = Console.ReadLine();
-            employee.Nik = niks;
-
-            Console.Write("First Name : ");
-            employee.FirstName = Console.ReadLine();
-
-            Console.Write("Lame Name : ");
-            employee.LastName = Console.ReadLine();
-
-            Console.Write("Birthdate : ");
-            employee.Birthdate = DateTime.Parse(Console.ReadLine());
-
-            Console.Write("Gender : ");
-            employee.Gender = Console.ReadLine();
-
-            Console.Write("Hiring Date : ");
-            employee.HiringDate = DateTime.Parse(Console.ReadLine());
-
-            Console.Write("Email : ");
-            employee.Email = Console.ReadLine();
-
-            Console.Write("Phone Number : ");
-            employee.PhoneNumber = Console.ReadLine();
-
-            Console.Write("Department ID : ");
-            employee.DepartmentId = Console.ReadLine();
-
-            //EDUCATION
-            Console.Write("Major : ");
-            education.major = Console.ReadLine();
-
-            Console.Write("Degree : ");
-            education.degree = Console.ReadLine();
-
-            Console.Write("GPA : ");
-            education.gpa = Console.ReadLine();
-
-            Console.Write("University Name : ");
-            university.Name = Console.ReadLine();
-
-
-            var result = Employees.InsertEmployee(employee);
-            if (result > 0)
+            var employee = new List<Employee>();
+            using SqlConnection connection = MyConnection.Get();
+            try
             {
-                Console.WriteLine("Insert all success");
+                SqlCommand command = new SqlCommand();
+                command.Connection = connection;
+                command.CommandText = "SELECT * FROM tb_m_employees";
+                connection.Open();
+
+                using SqlDataReader reader = command.ExecuteReader();
+                if (reader.HasRows)
+                {
+                    while (reader.Read())
+                    {
+                        var emp = new Employee();
+                        emp.Id = reader.GetGuid(0).ToString();
+                        emp.Nik = reader.GetString(1);
+                        emp.FirstName = reader.GetString(2);
+                        emp.LastName = reader.GetString(3);
+                        emp.Birthdate = reader.GetDateTime(4);
+                        emp.Gender = reader.GetString(5);
+                        emp.HiringDate = reader.GetDateTime(6);
+                        emp.Email = reader.GetString(7);
+                        emp.PhoneNumber = reader.GetString(8);
+                        emp.DepartmentId = reader.GetString(9);
+                        employee.Add(emp);
+                    }
+
+                    return employee;
+                }
             }
-            else
+            catch (Exception ex)
             {
-                Console.WriteLine("Insert all Failed");
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                connection.Close();
             }
 
-            universities.InsertUniversity(university);
-
-            education.university_id = GetUnivEduId(1);
-            educations.InsertEducation(education);
-
-            profiling.employee_id = GetEmpId(niks);
-            profiling.education_id = GetUnivEduId(2);
-            profilings.InsertProfiling(profiling);
-
-
+            return new List<Employee>();
         }
+
+
     }
 }
+

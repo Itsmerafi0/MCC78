@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BasicConnection.Context;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -6,20 +7,99 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BasicConnection
+namespace BasicConnection.Model
 {
-    public class universities
+    public class University
     {
         public int Id { get; set; }
         public string Name { get; set; }
 
-        private static readonly string connectionString =
-    "Data Source=RAFI;Database=bookingservice;Integrated Security=True;Connect Timeout=30;Encrypt=False;";
-
-    public static int UpdateUniversity(universities university)
+        /*
+         * <summary>
+         * 
+         * </summary>
+         * <param name="university"></param>
+         * <returns = 1></returns>
+         * 
+         */
+        public int InsertUniversity(University university)
         {
             int result = 0;
-            using var connection = new SqlConnection(connectionString);
+            using var connection = MyConnection.Get();
+            connection.Open();
+
+            SqlTransaction transaction = connection.BeginTransaction();
+            try
+            {
+                SqlCommand command = new SqlCommand();
+                command.Connection = connection;
+                command.CommandText = "INSERT INTO tb_m_universities(name) VALUES (@name)";
+                command.Transaction = transaction;
+
+                var pName = new SqlParameter();
+                pName.ParameterName = "@name";
+                pName.SqlDbType = SqlDbType.VarChar;
+                pName.Size = 50;
+                pName.Value = university.Name;
+                command.Parameters.Add(pName);
+
+                result = command.ExecuteNonQuery();
+                transaction.Commit();
+
+                return result;
+            }
+
+            catch (Exception e)
+            {
+                transaction.Rollback();
+            }
+            finally
+            {
+                connection.Close();
+            }
+            return result;
+        }
+
+        public List<University> GetUniversities()
+        {
+            var universities = new List<University>();
+            using SqlConnection connection = MyConnection.Get();
+            try
+            {
+                SqlCommand command = new SqlCommand();
+                command.Connection = connection;
+                command.CommandText = "SELECT * FROM tb_m_universities";
+                connection.Open();
+
+                using SqlDataReader reader = command.ExecuteReader();
+                if (reader.HasRows)
+                {
+                    while (reader.Read())
+                    {
+                        var university = new University();
+                        university.Id = reader.GetInt32(0);
+                        university.Name = reader.GetString(1);
+
+                        universities.Add(university);
+                    }
+                    return universities;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                connection.Close();
+            }
+            return new List<University>();
+        }
+
+        public int UpdateUniversity(University university)
+        {
+            int result = 0;
+            using var connection = MyConnection.Get();
             connection.Open();
 
             SqlTransaction transaction = connection.BeginTransaction();
@@ -57,10 +137,10 @@ namespace BasicConnection
             return result;
         }
 
-        public static int DeleteUniversity(universities university)
+        public int DeleteUniversity(University university)
         {
             int result = 0;
-            using var connection = new SqlConnection(connectionString);
+            using var connection = MyConnection.Get();
             connection.Open();
 
             SqlTransaction transaction = connection.BeginTransaction();
@@ -91,78 +171,17 @@ namespace BasicConnection
             }
             return result;
         }
-        public static List<universities> GetUniversities()
+        public int GetUnivId()
         {
-            var universities = new List<universities>();
-            using SqlConnection connection = new SqlConnection(connectionString);
-            try
-            {
-                SqlCommand command = new SqlCommand();
-                command.Connection = connection;
-                command.CommandText = "SELECT * FROM tb_m_universities";
-                connection.Open();
-
-                using SqlDataReader reader = command.ExecuteReader();
-                if (reader.HasRows)
-                {
-                    while (reader.Read())
-                    {
-                        var university = new universities();
-                        university.Id = reader.GetInt32(0);
-                        university.Name = reader.GetString(1);
-
-                        universities.Add(university);
-                    }
-                    return universities;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-            finally
-            {
-                connection.Close();
-            }
-            return new List<universities>();
-        }
-        public static int InsertUniversity(universities university)
-        {
-            int result = 0;
-            using var connection = new SqlConnection(connectionString);
+            using var connection = MyConnection.Get();
             connection.Open();
+            SqlCommand command = new SqlCommand("SELECT TOP 1 id FROM tb_m_universities ORDER BY id DESC", connection);
 
-            SqlTransaction transaction = connection.BeginTransaction();
-            try
-            {
-                SqlCommand command = new SqlCommand();
-                command.Connection = connection;
-                command.CommandText = "INSERT INTO tb_m_universities(name) VALUES (@name)";
-                command.Transaction = transaction;
+            int id = Convert.ToInt32(command.ExecuteScalar());
+            connection.Close();
 
-                var pName = new SqlParameter();
-                pName.ParameterName = "@name";
-                pName.SqlDbType = SqlDbType.VarChar;
-                pName.Size = 50;
-                pName.Value = university.Name;
-                command.Parameters.Add(pName);
-
-                result = command.ExecuteNonQuery();
-                transaction.Commit();
-
-                return result;
-            }
-
-            catch (Exception e)
-            {
-                transaction.Rollback();
-            }
-            finally
-            {
-                connection.Close();
-            }
-            return result;
+            return id;
         }
-
     }
 }
+ 
